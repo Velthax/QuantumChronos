@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Chronos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
+
+        /* This is the key fix. Removing the flex centering from the body
+           and allowing it to have a minimum height, enabling scroll. */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d0d1e;
+            color: #e0e0f0;
+            min-height: 100vh;
+            position: relative;
+            overflow-y: auto; /* Explicitly enables vertical scrolling */
+            transition: background-color 0.5s ease-in-out;
+            padding: 2rem; /* Add padding here for consistent spacing */
+        }
+
+        /* Subtle animated background using a pseudo-element */
+        body::before {
+            content: '';
+            position: fixed; /* Use fixed so it doesn't scroll with content */
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 10% 20%, rgba(77, 60, 160, 0.2) 0%, rgba(77, 60, 160, 0) 50%),
+                        radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.2) 0%, rgba(139, 92, 246, 0) 50%);
+            animation: background-pulse 10s infinite alternate ease-in-out;
+            z-index: -1;
+        }
+
+        @keyframes background-pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            100% { transform: scale(1.1); opacity: 1; }
+        }
+
+        .container {
+            background: rgba(18, 18, 30, 0.8);
+            backdrop-filter: blur(10px);
+            border-radius: 2rem;
+            border: 1px solid rgba(40, 40, 60, 0.5);
+            box-shadow: 0 0 50px rgba(13, 13, 30, 0.5);
+            flex-direction: column;
+            margin: auto; /* This centers the container now */
+        }
+
+        /* Pure black background for Pomodoro mode for ultimate focus */
+        body.pomodoro-mode {
+            background-color: #000000;
+        }
+
+        body.pomodoro-mode::before {
+            display: none; /* Hide the subtle animation */
+        }
+
+        .container.pomodoro-mode {
+            background: #000000;
+            box-shadow: none;
+            border: none;
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        /* Gradient for input focus effect */
+        .input-group::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #4f46e5, #8b5cf6, #3b82f6);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .input-group:focus-within::after {
+            opacity: 1;
+        }
+
+        .quote-box {
+            background: linear-gradient(135deg, rgba(29, 29, 50, 0.8), rgba(20, 20, 40, 0.8));
+            border: 1px solid rgba(40, 40, 60, 0.5);
+            box-shadow: 0 0 30px rgba(139, 92, 246, 0.2);
+            position: relative;
+            overflow: hidden;
+            border-radius: 1.5rem;
+        }
+
+        /* Custom scrollbar for schedule list */
+        .schedule-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .schedule-list::-webkit-scrollbar-thumb {
+            background: #4f46e5;
+            border-radius: 10px;
+        }
+
+        .schedule-list::-webkit-scrollbar-track {
+            background: #1e1e30;
+        }
+
+        /* Checkbox styling */
+        .task-checkbox {
+            position: relative;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        .task-checkbox::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 2px solid #a0a0c0;
+            border-radius: 0.5rem;
+            background-color: #1a1a2e;
+            transition: all 0.2s ease;
+        }
+
+        .task-checkbox:checked::before {
+            background-color: #4f46e5;
+            border-color: #4f46e5;
+        }
+
+        .task-checkbox:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        /* Gradient and glow effect for buttons */
+        .gradient-button {
+            position: relative;
+            z-index: 1;
+            background: linear-gradient(90deg, #4f46e5, #8b5cf6);
+            transition: all 0.3s ease;
+        }
+
+        .gradient-button::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #4f46e5, #8b5cf6, #3b82f6);
+            border-radius: 1rem;
+            filter: blur(8px);
+            opacity: 0.5;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+        }
+
+        .gradient-button:hover::before {
+            opacity: 1;
+        }
+        
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.5s ease;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        #pomodoro-timer {
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            background: #1e1e30;
+            border: 1px solid #4f46e5;
+            border-radius: 0.5rem;
+            top: 100%;
+            right: 0;
+            width: 100%;
+            z-index: 10;
+        }
+
+        .dropdown-menu button {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s ease;
+        }
+
+        .dropdown-menu button:hover {
+            background-color: #2a2a40;
+        }
+
+        .dropdown-btn:hover + .dropdown-menu,
+        .dropdown-menu:hover {
+            display: block;
+        }
+        
+        .habit-list .flex {
+            transition: transform 0.2s ease-in-out;
+        }
+        .habit-list .flex:hover {
+            transform: translateX(5px);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Navigation Buttons - Always visible -->
+    <div id="nav-buttons" class="fixed top-4 left-4 flex gap-4 transition-all duration-300 z-50">
+        <button id="show-planner-btn" class="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors duration-200 text-sm">
+            Planner
+        </button>
+        <button id="show-pomodoro-btn" class="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors duration-200 text-sm">
+            Pomodoro
+        </button>
+    </div>
+
+    <div class="container p-8 lg:p-12 w-full max-w-7xl flex flex-col gap-8 lg:gap-12 transition-all duration-500 ease-in-out">
+        
+        <!-- Main Content Section -->
+        <div id="planner-view" class="flex-1 transition-all duration-300 transform scale-100 opacity-100">
+            <h1 class="text-3xl lg:text-5xl font-bold mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600">
+                Quantum Chronos
+            </h1>
+            <p class="text-gray-400 mb-8">A futuristic hub for your daily endeavors.</p>
+            
+            <!-- Daily Progress Section (Visual Upgrade) -->
+            <div class="bg-gray-800 bg-opacity-40 p-6 rounded-2xl mb-8 border border-gray-700 flex flex-col items-center justify-center">
+                <div class="relative w-32 h-32 mb-4">
+                    <svg class="w-full h-full" viewBox="0 0 100 100">
+                        <circle class="text-gray-700 stroke-current" stroke-width="8" cx="50" cy="50" r="40" fill="transparent"></circle>
+                        <circle id="progress-circle" class="stroke-current progress-ring__circle" stroke-width="8" stroke-linecap="round" cx="50" cy="50" r="40" fill="transparent" style="stroke-dasharray: 251.2; stroke-dashoffset: 251.2;"></circle>
+                    </svg>
+                    <div id="progress-text-ring" class="absolute inset-0 flex items-center justify-center text-lg font-semibold text-purple-400">0%</div>
+                </div>
+                <div class="text-sm text-gray-400">Tasks Completed: <span id="progress-count">0/0</span></div>
+            </div>
+
+            <!-- Task Input Form -->
+            <div class="flex flex-col md:flex-row items-stretch gap-4 mb-8">
+                <div class="input-group flex-1 flex gap-2">
+                    <input type="time" id="task-time-input" value="09:00" class="w-1/4 p-4 rounded-xl bg-gray-900 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-300">
+                    <input type="text" id="task-input" placeholder="Enter a new task..." class="flex-1 p-4 rounded-xl bg-gray-900 border border-gray-700 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-300">
+                </div>
+                <button id="add-task-btn" class="gradient-button px-6 py-4 rounded-xl text-white font-semibold hover:bg-purple-700 transition-all duration-300">
+                    Add Task
+                </button>
+            </div>
+
+            <!-- Schedule Management Buttons -->
+            <div class="flex justify-between items-center mb-8">
+                <span id="schedule-title" class="text-lg font-semibold text-gray-300">Current Schedule: <span class="text-purple-400">Weekdays</span></span>
+                <div class="flex items-center gap-4">
+                    <!-- Save Schedule Buttons -->
+                    <button id="save-weekday-btn" class="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors duration-200 text-sm">
+                        Save Weekday
+                    </button>
+                    <button id="save-weekend-btn" class="px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors duration-200 text-sm">
+                        Save Weekend
+                    </button>
+
+                    <!-- Load Template Dropdown -->
+                    <div class="relative">
+                        <button id="load-template-btn" class="dropdown-btn px-4 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors duration-200 text-sm">
+                            Load Template
+                        </button>
+                        <div id="template-menu" class="dropdown-menu">
+                            <button data-template="stoic-weekday">Stoic Weekday</button>
+                            <button data-template="stoic-weekend">Stoic Weekend</button>
+                            <button data-template="elon-musk">Elon Musk</button>
+                            <button data-template="david-goggins">David Goggins</button>
+                            <button data-template="nikola-tesla">Nikola Tesla</button>
+                            <button data-template="albert-einstein">Albert Einstein</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Schedule List -->
+            <div class="schedule-list overflow-y-auto max-h-[400px] lg:max-h-[500px]">
+                <ul id="task-list" class="space-y-4"></ul>
+            </div>
+
+            <div class="flex justify-end mt-8">
+                <button id="clear-all-btn" class="gradient-button px-6 py-3 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-all duration-300">
+                    Clear Day
+                </button>
+            </div>
+
+            <!-- Best & Worst Habits Section -->
+            <div class="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="p-6 bg-gray-800 bg-opacity-40 rounded-2xl border border-gray-700">
+                    <h3 class="text-xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-teal-500">
+                        ⭐ Best Habits to Follow
+                    </h3>
+                    <ul class="habit-list space-y-3 text-gray-300">
+                        <li class="flex items-center gap-3">
+                            <span class="text-green-400">✅</span>
+                            <span>Morning Reflection & Journaling</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="text-green-400">✅</span>
+                            <span>Dedicated Deep Work Sessions (Pomodoro)</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="text-green-400">✅</span>
+                            <span>Regular Physical Activity</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="text-green-400">✅</span>
+                            <span>Consistent Sleep Schedule</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="text-green-400">✅</span>
+                            <span>Reading & Continuous Learning</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="p-6 bg-gray-800 bg-opacity-40 rounded-2xl border border-gray-700">
+                    <h3 class="text-xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-orange-500">
+                        🚫 Worst Habits to Avoid
+                    </h3>
+                    <ul class="habit-list space-y-3 text-gray-300">
+                        <li class="flex items-center gap-3">
+                            <span class="text-red-400">❌</span>
+                            <span>Endless Social Media Scrolling</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="text-red-400">❌</span>
+                            <span>Multitasking Without Focus</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="text-red-400">❌</span>
+                            <span>Procrastinating on Key Tasks</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="text-red-400">❌</span>
+                            <span>Irregular Sleep Patterns</span>
+                        </li>
+                        <li class="flex items-center gap-3">
+                            <span class="text-red-400">❌</span>
+                            <span>Negative Self-Talk</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pomodoro Timer View -->
+        <div id="pomodoro-view" class="hidden flex-1 flex flex-col items-center justify-center transition-all duration-300 transform scale-95 opacity-0 absolute inset-0">
+            <h2 class="text-4xl lg:text-6xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-green-600">
+                Pomodoro Focus
+            </h2>
+            <div class="relative w-72 h-72 mb-8">
+                <svg class="w-full h-full" viewBox="0 0 100 100">
+                    <circle class="text-gray-800 stroke-current" stroke-width="8" cx="50" cy="50" r="40" fill="transparent"></circle>
+                    <circle id="pomodoro-circle" class="stroke-current" stroke-width="8" stroke-linecap="round" cx="50" cy="50" r="40" fill="transparent" style="stroke-dasharray: 251.2; stroke-dashoffset: 251.2;"></circle>
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center">
+                    <div id="pomodoro-timer" class="text-6xl font-bold text-gray-200">25:00</div>
+                    <div id="timer-status" class="text-lg text-gray-400 mt-2">Ready to Focus</div>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <button id="pomodoro-start-btn" class="px-6 py-3 rounded-xl gradient-button text-white font-semibold transition-colors duration-300">Start</button>
+                <button id="pomodoro-pause-btn" class="px-6 py-3 rounded-xl bg-gray-600 text-white font-semibold hover:bg-gray-700 transition-colors duration-300">Pause</button>
+                <button id="pomodoro-reset-btn" class="px-6 py-3 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors duration-300">Reset</button>
+            </div>
+        </div>
+        
+        <!-- Quote element is now a horizontal footer -->
+        <div id="quote-container" class="w-full p-6 mt-8 rounded-2xl text-center bg-gray-800 bg-opacity-40 border border-gray-700">
+            <div id="quote-content" class="text-lg font-light italic mb-2 text-gray-200 leading-relaxed">
+                "The universe is not only stranger than we imagine, it is stranger than we can imagine."
+            </div>
+            <div id="quote-author" class="font-semibold text-purple-400 text-sm">
+                — Werner Heisenberg
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Set up the quote data.
+        const quotes = [
+            { text: "The universe is not only stranger than we imagine, it is stranger than we can imagine.", author: "Werner Heisenberg" },
+            { text: "Two things are infinite: the universe and human stupidity; and I'm not sure about the universe.", author: "Albert Einstein" },
+            { text: "Success is not final, failure is not fatal: it is the courage to continue that counts.", author: "Winston Churchill" },
+            { text: "The unexamined life is not worth living.", author: "Socrates" },
+            { text: "A man is but the product of his thoughts. What he thinks, he becomes.", author: "Mahatma Gandhi" },
+            { text: "The more I learn, the more I realize how much I don't know.", author: "Albert Einstein" },
+            { text: "Waste no more time arguing about what a good man should be. Be one.", author: "Marcus Aurelius" },
+            { text: "The good thing about science is that it's true whether or not you believe in it.", author: "Neil deGrasse Tyson" },
+            { text: "Look up at the stars and not down at your feet. Try to make sense of what you see, and wonder about what makes the universe exist. Be curious.", author: "Stephen Hawking" },
+            { text: "An intelligent man is sometimes forced to be drunk to spend time with his fools.", author: "Ernest Hemingway" },
+            { text: "The greatest glory in living lies not in never falling, but in rising every time we fall.", author: "Nelson Mandela" },
+            { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+            { text: "We are what we repeatedly do. Excellence, then, is not an act, but a habit.", author: "Aristotle" },
+            { text: "The most beautiful thing we can experience is the mysterious. It is the source of all true art and science.", author: "Albert Einstein" },
+            { text: "Do not let your mind be distracted by the many things. You have one life. Do what you can with it.", author: "Socrates" },
+            { text: "The only true wisdom is in knowing you know nothing.", author: "Socrates" },
+            { text: "Your time is limited, don't waste it living someone else's life.", author: "Steve Jobs" },
+            { text: "The path to success is to take massive, determined action.", author: "Tony Robbins" },
+            { text: "First say to yourself what you would be; and then do what you have to do.", author: "Epictetus" },
+            { text: "You have power over your mind—not outside events. Realize this, and you will find strength.", author: "Marcus Aurelius" },
+            { text: "The happiness of your life depends upon the quality of your thoughts.", author: "Marcus Aurelius" },
+            { text: "If a man does not keep pace with his companions, perhaps it is because he hears a different drummer. Let him step to the music which he hears, however measured or far away.", author: "Henry David Thoreau" },
+            { text: "All that we are is the result of what we have thought. The mind is everything. What we think we become.", author: "Buddha" },
+            { text: "Be the change that you wish to see in the world.", author: "Mahatma Gandhi" },
+            { text: "The only way to make sense out of change is to plunge into it, move with it, and join the dance.", author: "Alan Watts" },
+            { text: "Everything that is, is in a state of flux, and nothing is permanent.", author: "Heraclitus" },
+            { text: "The supreme accomplishment is to blur the line between work and play.", author: "Arnold J. Toynbee" },
+            { text: "It is not the man who has too little, but the man who craves more, that is poor.", author: "Seneca" },
+            { text: "What we think, we become. What we feel, we radiate. What we imagine, we create.", author: "Buddha" },
+            { text: "The Bhagavad Gita is a profound philosophical text that discusses duty, righteousness, and the nature of the self.", author: "Bhagavad Gita" }
+        ];
+
+        // --- Schedule Templates ---
+        const stoicWeekdayTasks = [
+            { text: "Wake Up & Morning Vows", time: "03:30", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Meditation & Mindful Breathwork", time: "03:40", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Physical Training & Cold Bath", time: "04:15", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Study Quantum Physics/Astrophysics", time: "05:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Breakfast & Journaling", time: "07:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Focused Study Block (School Work)", time: "08:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Lunch & Reading", time: "12:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Skill Practice (Chess/Music)", time: "13:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Evening Reflection & Planning", time: "18:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Family Time & Dinner", time: "19:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Reading The Bhagavad Gita/Philosophy", time: "20:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Wind Down & Sleep", time: "22:00", completed: false, elapsedTime: 0, isRunning: false }
+        ];
+
+        const stoicWeekendTasks = [
+            { text: "Wake Up & Morning Vows", time: "04:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Meditation & Mindful Breathwork", time: "04:15", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Physical Training & Cold Bath", time: "05:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Reading and Creative Writing", time: "06:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Family Time & Socializing", time: "10:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Deep Study on a new topic", time: "14:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Skill Practice (Chess)", time: "16:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Movie/Relaxing Activity", time: "20:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Evening Reflection & Journaling", time: "22:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Wind Down & Sleep", time: "23:00", completed: false, elapsedTime: 0, isRunning: false }
+        ];
+
+        const elonMuskTasks = [
+            { text: "Wake up & Shower", time: "07:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Email & Time-boxed Work Block (SpaceX/Tesla)", time: "07:15", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Quick Lunch (while working)", time: "12:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Time-boxed Work Block (Engineering & Design)", time: "12:30", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Dinner with Team/Family", time: "19:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Evening Work Block (Coding/Design)", time: "20:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Reading & Late Night Work", time: "22:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Sleep", time: "01:00", completed: false, elapsedTime: 0, isRunning: false }
+        ];
+
+        const davidGogginsTasks = [
+            { text: "Wake up & Morning Routine", time: "03:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Morning Workout (Running/Lifting)", time: "03:30", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Breakfast & Mental Preparation", time: "06:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Work/Study Session", time: "07:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Afternoon Workout", time: "12:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Deep Work Session", time: "14:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Evening Reflection & Planning", time: "18:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Dinner & Family Time", time: "19:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Prepare for Tomorrow & Sleep", time: "21:00", completed: false, elapsedTime: 0, isRunning: false }
+        ];
+
+        const nikolaTeslaTasks = [
+            { text: "Wake up & Morning Research", time: "03:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Morning Walk & Pigeon Feeding", time: "05:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Breakfast & Solo Work", time: "06:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Lab Work & Experimentation", time: "08:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Lunch (Often in solitude)", time: "12:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Afternoon Lab Work", time: "13:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Evening Dinner (Often with a select few)", time: "20:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Late Night Work & Ideation", time: "22:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Wind Down & Sleep", time: "01:00", completed: false, elapsedTime: 0, isRunning: false }
+        ];
+
+        const albertEinsteinTasks = [
+            { text: "Wake Up & Morning Walk", time: "09:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Breakfast & Newspaper", time: "10:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Work Session (Pondering & Mathematics)", time: "10:30", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Lunch & Afternoon Nap", time: "13:30", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Walk & Deep Thinking Session", time: "15:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Afternoon Work/Lectures", time: "17:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Dinner & Discussion", time: "19:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Evening Relaxation (Music/Reading)", time: "20:00", completed: false, elapsedTime: 0, isRunning: false },
+            { text: "Wind Down & Sleep", time: "22:30", completed: false, elapsedTime: 0, isRunning: false }
+        ];
+
+        // DOM elements for Planner
+        const plannerView = document.getElementById('planner-view');
+        const showPlannerBtn = document.getElementById('show-planner-btn');
+        const navButtons = document.getElementById('nav-buttons');
+        const taskInput = document.getElementById('task-input');
+        const taskTimeInput = document.getElementById('task-time-input');
+        const addTaskBtn = document.getElementById('add-task-btn');
+        const taskList = document.getElementById('task-list');
+        const progressCount = document.getElementById('progress-count');
+        const progressCircle = document.getElementById('progress-circle');
+        const progressTextRing = document.getElementById('progress-text-ring');
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        const loadTemplateBtn = document.getElementById('load-template-btn');
+        const templateMenu = document.getElementById('template-menu');
+        const saveWeekdayBtn = document.getElementById('save-weekday-btn');
+        const saveWeekendBtn = document.getElementById('save-weekend-btn');
+        const scheduleTitle = document.getElementById('schedule-title');
+
+        // DOM elements for Pomodoro
+        const pomodoroView = document.getElementById('pomodoro-view');
+        const showPomodoroBtn = document.getElementById('show-pomodoro-btn');
+        const pomodoroTimer = document.getElementById('pomodoro-timer');
+        const pomodoroCircle = document.getElementById('pomodoro-circle');
+        const timerStatus = document.getElementById('timer-status');
+        const pomodoroStartBtn = document.getElementById('pomodoro-start-btn');
+        const pomodoroPauseBtn = document.getElementById('pomodoro-pause-btn');
+        const pomodoroResetBtn = document.getElementById('pomodoro-reset-btn');
+        
+        // DOM elements for Quote
+        const quoteContainer = document.getElementById('quote-container');
+        const quoteContent = document.getElementById('quote-content');
+        const quoteAuthor = document.getElementById('quote-author');
+        
+        const mainContainer = document.querySelector('.container');
+
+        const circumference = 2 * Math.PI * 40;
+        progressCircle.style.strokeDasharray = circumference;
+        pomodoroCircle.style.strokeDasharray = circumference;
+
+        let taskIntervalId;
+        let pomodoroIntervalId;
+        let pomodoroTime = 25 * 60;
+        let breakTime = 5 * 60;
+        let isPomodoroRunning = false;
+        let isBreakRunning = false;
+        let timeLeft = pomodoroTime;
+        
+        let currentScheduleType = 'weekdays'; // 'weekdays' or 'weekends'
+
+        // --- Core Functions ---
+
+        /**
+         * Selects a quote based on the current day of the year to ensure it changes daily.
+         * @returns {Object} The selected quote object.
+         */
+        const getDailyQuote = () => {
+            const now = new Date();
+            const startOfYear = new Date(now.getFullYear(), 0, 0);
+            const diff = now - startOfYear;
+            const oneDay = 1000 * 60 * 60 * 24;
+            const dayOfYear = Math.floor(diff / oneDay);
+            const quoteIndex = dayOfYear % quotes.length;
+            return quotes[quoteIndex];
+        };
+
+        /**
+         * Renders the quote to the UI.
+         */
+        const renderQuote = () => {
+            const dailyQuote = getDailyQuote();
+            quoteContent.textContent = `"${dailyQuote.text}"`;
+            quoteAuthor.textContent = `— ${dailyQuote.author}`;
+        };
+
+        /**
+         * Loads tasks from local storage based on the current schedule type.
+         * @returns {Array} An array of task objects.
+         */
+        const loadTasks = () => {
+            try {
+                const tasks = localStorage.getItem(`dailyTasks-${currentScheduleType}`);
+                return tasks ? JSON.parse(tasks) : [];
+            } catch (error) {
+                console.error("Failed to load tasks from local storage.", error);
+                return [];
+            }
+        };
+
+        /**
+         * Saves tasks to local storage based on the current schedule type.
+         * @param {Array} tasks - The array of task objects to save.
+         */
+        const saveTasks = (tasks) => {
+            try {
+                localStorage.setItem(`dailyTasks-${currentScheduleType}`, JSON.stringify(tasks));
+            } catch (error) {
+                console.error("Failed to save tasks to local storage.", error);
+            }
+        };
+        
+        /**
+         * Formats a time in milliseconds into HH:MM:SS format.
+         * @param {number} ms - Time in milliseconds.
+         * @returns {string} Formatted time string.
+         */
+        const formatTime = (ms) => {
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            return [minutes, seconds]
+                .map(v => v < 10 ? '0' + v : v)
+                .join(':');
+        };
+
+        /**
+         * Renders the task list to the UI and updates progress.
+         */
+        const renderTasks = () => {
+            const tasks = loadTasks();
+            taskList.innerHTML = '';
+            tasks.sort((a, b) => a.time.localeCompare(b.time)); // Sort tasks by time
+            tasks.forEach((task, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex flex-col md:flex-row items-start md:items-center justify-between p-4 rounded-xl bg-gray-800 bg-opacity-40 border border-gray-700 shadow-lg animate-fade-in gap-4';
+                li.innerHTML = `
+                    <div class="flex items-start gap-4 flex-1 w-full">
+                        <input type="checkbox" data-index="${index}" ${task.completed ? 'checked' : ''} class="task-checkbox mt-1 appearance-none">
+                        <div class="flex flex-col">
+                            <span class="text-sm text-purple-400 font-semibold">${task.time}</span>
+                            <span class="text-lg ${task.completed ? 'line-through text-gray-500' : 'text-gray-200'}">${task.text}</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span class="timer-display text-purple-400 font-mono text-sm">${formatTime(task.elapsedTime)}</span>
+                        <button class="timer-btn px-3 py-1 rounded-full text-white font-semibold transition-colors duration-200 w-16" data-index="${index}">
+                            ${task.isRunning ? 'Stop' : 'Start'}
+                        </button>
+                        <button class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200" data-index="${index}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                `;
+                taskList.appendChild(li);
+
+                const timerBtn = li.querySelector('.timer-btn');
+                timerBtn.classList.add(task.isRunning ? 'bg-red-600' : 'bg-green-600', task.isRunning ? 'hover:bg-red-700' : 'hover:bg-green-700');
+            });
+            updateProgress();
+        };
+        
+        /**
+         * Starts the main timer loop to update running task timers.
+         */
+        const startTaskTimerLoop = () => {
+            if (taskIntervalId) clearInterval(taskIntervalId);
+            taskIntervalId = setInterval(() => {
+                const tasks = loadTasks();
+                let tasksUpdated = false;
+                tasks.forEach(task => {
+                    if (task.isRunning) {
+                        task.elapsedTime += 1000;
+                        tasksUpdated = true;
+                    }
+                });
+                if (tasksUpdated) {
+                    saveTasks(tasks);
+                    renderTasks();
+                }
+            }, 1000);
+        };
+
+        /**
+         * Stops the main task timer loop.
+         */
+        const stopTaskTimerLoop = () => {
+            if (taskIntervalId) {
+                clearInterval(taskIntervalId);
+                taskIntervalId = null;
+            }
+        };
+
+        /**
+         * Updates the daily progress bar and text.
+         */
+        const updateProgress = () => {
+            const tasks = loadTasks();
+            const completedTasks = tasks.filter(t => t.completed).length;
+            const totalTasks = tasks.length;
+
+            const percentage = totalTasks === 0 ? 0 : (completedTasks / totalTasks);
+            const offset = circumference - percentage * circumference;
+            progressCircle.style.strokeDashoffset = offset;
+            progressTextRing.textContent = `${Math.round(percentage * 100)}%`;
+            progressCount.textContent = `${completedTasks}/${totalTasks}`;
+        };
+
+        // --- Pomodoro Timer Functions ---
+
+        /**
+         * Updates the pomodoro timer display.
+         */
+        const updatePomodoroDisplay = () => {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            pomodoroTimer.textContent = formattedTime;
+            const percentage = timeLeft / (isPomodoroRunning ? pomodoroTime : breakTime);
+            const offset = circumference - percentage * circumference;
+            pomodoroCircle.style.strokeDashoffset = offset;
+        };
+
+        /**
+         * Starts or resumes the pomodoro timer.
+         */
+        const startPomodoro = () => {
+            if (pomodoroIntervalId) return; // Already running
+            isPomodoroRunning = true;
+            isBreakRunning = false;
+            pomodoroCircle.classList.remove('text-purple-500');
+            pomodoroCircle.classList.add('text-green-500');
+            timerStatus.textContent = 'Focus Session';
+            
+            pomodoroIntervalId = setInterval(() => {
+                if (timeLeft <= 0) {
+                    clearInterval(pomodoroIntervalId);
+                    pomodoroIntervalId = null;
+                    isPomodoroRunning = false;
+                    startBreak();
+                } else {
+                    timeLeft--;
+                    updatePomodoroDisplay();
+                }
+            }, 1000);
+        };
+
+        /**
+         * Starts the break timer.
+         */
+        const startBreak = () => {
+            isBreakRunning = true;
+            pomodoroCircle.classList.remove('text-green-500');
+            pomodoroCircle.classList.add('text-purple-500');
+            timerStatus.textContent = 'Break Time';
+            timeLeft = breakTime;
+            updatePomodoroDisplay();
+
+            pomodoroIntervalId = setInterval(() => {
+                if (timeLeft <= 0) {
+                    clearInterval(pomodoroIntervalId);
+                    pomodoroIntervalId = null;
+                    isBreakRunning = false;
+                    resetPomodoro();
+                } else {
+                    timeLeft--;
+                    updatePomodoroDisplay();
+                }
+            }, 1000);
+        };
+
+        /**
+         * Pauses the pomodoro timer.
+         */
+        const pausePomodoro = () => {
+            clearInterval(pomodoroIntervalId);
+            pomodoroIntervalId = null;
+            isPomodoroRunning = false;
+            isBreakRunning = false;
+            timerStatus.textContent = 'Paused';
+        };
+
+        /**
+         * Resets the pomodoro timer to the initial state.
+         */
+        const resetPomodoro = () => {
+            clearInterval(pomodoroIntervalId);
+            pomodoroIntervalId = null;
+            isPomodoroRunning = false;
+            isBreakRunning = false;
+            timeLeft = pomodoroTime;
+            pomodoroCircle.classList.remove('text-purple-500');
+            pomodoroCircle.classList.add('text-green-500');
+            timerStatus.textContent = 'Ready to Focus';
+            updatePomodoroDisplay();
+        };
+
+        // --- Event Handlers ---
+
+        const handleAddTask = () => {
+            const taskText = taskInput.value.trim();
+            const taskTime = taskTimeInput.value;
+            if (taskText !== '' && taskTime !== '') {
+                const tasks = loadTasks();
+                tasks.push({ text: taskText, time: taskTime, completed: false, elapsedTime: 0, isRunning: false });
+                saveTasks(tasks);
+                renderTasks();
+                taskInput.value = '';
+            }
+        };
+
+        const handleTaskClick = (e) => {
+            const tasks = loadTasks();
+            const index = parseInt(e.target.dataset.index);
+            if (e.target.matches('input[type="checkbox"]')) {
+                tasks[index].completed = e.target.checked;
+                if (tasks[index].completed && tasks[index].isRunning) {
+                    tasks[index].isRunning = false;
+                }
+                saveTasks(tasks);
+                renderTasks();
+            } else if (e.target.closest('.delete-btn')) {
+                tasks.splice(index, 1);
+                saveTasks(tasks);
+                renderTasks();
+            } else if (e.target.closest('.timer-btn')) {
+                tasks.forEach((task, i) => {
+                    if (i !== index && task.isRunning) {
+                        task.isRunning = false;
+                    }
+                });
+                tasks[index].isRunning = !tasks[index].isRunning;
+                saveTasks(tasks);
+                renderTasks();
+            }
+        };
+
+        const handleClearAll = () => {
+            stopTaskTimerLoop();
+            saveTasks([]);
+            renderTasks();
+        };
+
+        const handleSaveSchedule = (scheduleType) => {
+            const tasks = loadTasks();
+            localStorage.setItem(`dailyTasks-${scheduleType}`, JSON.stringify(tasks));
+            renderTasks(); // Re-render to show the saved state
+        };
+        
+        const handleLoadTemplate = (templateType) => {
+            stopTaskTimerLoop();
+            let templateToLoad = [];
+            switch (templateType) {
+                case 'stoic-weekday':
+                    templateToLoad = stoicWeekdayTasks;
+                    break;
+                case 'stoic-weekend':
+                    templateToLoad = stoicWeekendTasks;
+                    break;
+                case 'elon-musk':
+                    templateToLoad = elonMuskTasks;
+                    break;
+                case 'david-goggins':
+                    templateToLoad = davidGogginsTasks;
+                    break;
+                case 'nikola-tesla':
+                    templateToLoad = nikolaTeslaTasks;
+                    break;
+                case 'albert-einstein':
+                    templateToLoad = albertEinsteinTasks;
+                    break;
+                default:
+                    // If no match, load empty or default
+                    templateToLoad = [];
+                    break;
+            }
+            localStorage.setItem(`dailyTasks-${currentScheduleType}`, JSON.stringify(templateToLoad));
+            renderTasks();
+            updateScheduleTitle();
+        };
+
+        /**
+         * Sets the current schedule type and updates the UI.
+         */
+        const setScheduleType = (type) => {
+            currentScheduleType = type;
+            renderTasks();
+            updateScheduleTitle();
+        };
+
+        /**
+         * Updates the schedule title display.
+         */
+        const updateScheduleTitle = () => {
+            scheduleTitle.innerHTML = `Current Schedule: <span class="text-purple-400">${currentScheduleType === 'weekdays' ? 'Weekdays' : 'Weekends'}</span>`;
+        };
+
+
+        const showView = (viewId) => {
+            const isPomodoro = viewId === 'pomodoro-view';
+            
+            if (isPomodoro) {
+                document.body.classList.add('pomodoro-mode');
+                mainContainer.classList.add('pomodoro-mode');
+                plannerView.classList.add('hidden');
+                pomodoroView.classList.remove('hidden', 'scale-95', 'opacity-0');
+            } else {
+                document.body.classList.remove('pomodoro-mode');
+                mainContainer.classList.remove('pomodoro-mode');
+                plannerView.classList.remove('hidden', 'scale-95', 'opacity-0');
+                pomodoroView.classList.add('hidden');
+            }
+        };
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderQuote();
+            // Check the day of the week and load the appropriate schedule
+            const dayOfWeek = new Date().getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+            if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                currentScheduleType = 'weekdays';
+            } else {
+                currentScheduleType = 'weekends';
+            }
+            renderTasks();
+            startTaskTimerLoop();
+            updatePomodoroDisplay();
+            updateScheduleTitle();
+        });
+
+        // Add event listeners
+        addTaskBtn.addEventListener('click', handleAddTask);
+        taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleAddTask();
+            }
+        });
+        taskList.addEventListener('click', handleTaskClick);
+        clearAllBtn.addEventListener('click', handleClearAll);
+
+        // Schedule management buttons
+        saveWeekdayBtn.addEventListener('click', () => handleSaveSchedule('weekdays'));
+        saveWeekendBtn.addEventListener('click', () => handleSaveSchedule('weekends'));
+        templateMenu.addEventListener('click', (e) => {
+            if (e.target.dataset.template) {
+                handleLoadTemplate(e.target.dataset.template);
+            }
+        });
+
+        // Pomodoro buttons
+        pomodoroStartBtn.addEventListener('click', startPomodoro);
+        pomodoroPauseBtn.addEventListener('click', pausePomodoro);
+        pomodoroResetBtn.addEventListener('click', resetPomodoro);
+
+        // View switching buttons
+        showPlannerBtn.addEventListener('click', () => showView('planner-view'));
+        showPomodoroBtn.addEventListener('click', () => showView('pomodoro-view'));
+
+    </script>
+
+</body>
+</html>
